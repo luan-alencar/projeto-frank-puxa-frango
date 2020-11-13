@@ -1,23 +1,15 @@
 package david.augusto.luan;
 
+import robocode.*;
+import robocode.util.Utils;
+
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.geom.Point2D;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-import robocode.AdvancedRobot;
-import robocode.BorderSentry;
-import robocode.RobotDeathEvent;
-import robocode.Rules;
-import robocode.ScannedRobotEvent;
-import robocode.util.Utils;
-
-public class Ultron extends AdvancedRobot implements BorderSentry {
+public class FrankPuxaFrango extends AdvancedRobot implements BorderSentry {
 
 	// Constants
 	final double PODERDEFOGO = 3; // poder maximo de 3
@@ -47,7 +39,7 @@ public class Ultron extends AdvancedRobot implements BorderSentry {
 	/**
 	 * contrutor do robo
 	 */
-	public Ultron() {
+	public FrankPuxaFrango() {
 		// Inicializamos um HashMap especializado que usa uma lista vinculada para o
 		// pedido de acesso.
 		// Isso significa que a última entrada do robô acessada é listada primeiro,
@@ -80,28 +72,83 @@ public class Ultron extends AdvancedRobot implements BorderSentry {
 		}
 	}
 
+	// Detecta os outros robôs
+	public void onScannedRobot(ScannedRobotEvent e) {
+		double max = 100;
+
+		// Faz um controle da energia que é gasta no que diz
+		// respeito à potência do tiro
+		if (e.getEnergy() < max) {
+			max = e.getEnergy();
+			miraCanhao(e.getBearing(), max, getEnergy());
+		} else if (e.getEnergy() >= max) {
+			max = e.getEnergy();
+			miraCanhao(e.getBearing(), max, getEnergy());
+		} else if (getOthers() == 1) {
+			max = e.getEnergy();
+			miraCanhao(e.getBearing(), max, getEnergy());
+		}
+	}
+
+	// quando o seu robo colide com outro robo
+	public void onHitRobot(HitRobotEvent e) {
+		tiroFatal(e.getBearing(), e.getEnergy(), getEnergy());
+
+	}
+
+	// Quando seu roboô leva um tiro
+	public void onHitByBullet(HitByBulletEvent e) {
+		turnLeft(90);
+		back(100);
+	}
+
+	// Fornece as coordenadas para o ajuste do canhão.
+	public void miraCanhao(double PosIni, double energiaIni, double minhaEnergia) {
+		double Distancia = PosIni;
+		double Coordenadas = getHeading() + PosIni - getGunHeading();
+		double PontoQuarenta = (energiaIni / 4) + .1;
+		if (!(Coordenadas > -180 && Coordenadas <= 180)) {
+			while (Coordenadas <= -180) {
+				Coordenadas += 360;
+			}
+			while (Coordenadas > 180) {
+				Coordenadas -= 360;
+			}
+		}
+		turnGunRight(Coordenadas);
+
+		if (Distancia > 200 || minhaEnergia < 15 || energiaIni > minhaEnergia) {
+			fire(1);
+		} else if (Distancia > 50) {
+			fire(2);
+		} else {
+			fire(PontoQuarenta);
+		}
+	}
+
+	public void tiroFatal(double PosIni, double energiaIni, double minhaEnergia) {
+		double Coordenadas = getHeading() + PosIni - getGunHeading();
+		double PontoQuarenta = (energiaIni / 4) + .1;
+		if (!(Coordenadas > -180 && Coordenadas <= 180)) {
+			while (Coordenadas <= -180) {
+				Coordenadas += 360;
+			}
+			while (Coordenadas > 180) {
+				Coordenadas -= 360;
+			}
+		}
+		turnGunRight(Coordenadas);
+		fire(PontoQuarenta);
+
+	}
+
 	/**
 	 * Este método é chamado pelo jogo quando seu robô vê outro robô, ou seja,
 	 * quando a varredura do radar do robô "atinge" outro robô.
 	 * 
 	 * @param scannedRobotEvent é um evento ScannedRobotEvent.
 	 */
-	@Override
-	public void onScannedRobot(ScannedRobotEvent scannedRobotEvent) {
-		// Verifique se o robô verificado não é um robô sentinela
-		if (!scannedRobotEvent.isSentryRobot()) {
-			// O robô verificado não é um robô sentinela ...
-
-			// Atualize o mapa do inimigo
-			updateEnemyMap(scannedRobotEvent);
-
-			// Atualize a direção da varredura
-			updateScanDirection(scannedRobotEvent);
-
-			// Atualize as posições dos alvos inimigos
-			updateEnemyTargetPositions();
-		}
-	}
+	
 
 	/**
 	 * Este método é chamado pelo jogo quando outro robô morre.
@@ -186,11 +233,11 @@ public class Ultron extends AdvancedRobot implements BorderSentry {
 		setAdjustGunForRobotTurn(true);
 
 		// Set cores
-		setBodyColor(Color.pink);
-		setGunColor(Color.pink);
-		setRadarColor(Color.pink);
-		setBulletColor(Color.pink);
-		setScanColor(Color.pink);
+		setBodyColor(Color.black);
+		setGunColor(Color.black);
+		setRadarColor(Color.black);
+		setBulletColor(Color.black);
+		setScanColor(Color.black);
 	}
 
 	/**
@@ -326,145 +373,6 @@ public class Ultron extends AdvancedRobot implements BorderSentry {
 		}
 		// Avance 100 unidades para a frente ou para trás, dependendo da direção
 		setAhead(100 * direction);
-	}
-
-	/**
-	 * O método atualiza o mapa inimigo com base em novos dados de varredura para um
-	 * robô varrido.
-	 * 
-	 * @param scannedRobotEvent é um evento ScannedRobotEvent que contém dados sobre
-	 *                          um robô verificado.
-	 */
-	private void updateEnemyMap(ScannedRobotEvent scannedRobotEvent) {
-		// Obtém o nome do robô verificado
-		final String scannedRobotName = scannedRobotEvent.getName();
-
-		// Obtenha dados do robô para o robô verificado, se tivermos uma entrada no mapa
-		// inimigo
-		RobotData scannedRobot = enemyMap.get(scannedRobotName);
-
-		// Verifique se a entrada de dados existe para o robô verificado
-		if (scannedRobot == null) {
-			// Não existe entrada de dados => Criar uma nova entrada de dados para o robô
-			// verificado
-			scannedRobot = new RobotData(scannedRobotEvent);
-			// Coloque a nova entrada de dados no mapa inimigo
-			enemyMap.put(scannedRobotName, scannedRobot);
-		} else {
-			// Entrada de dados existe => Atualizar a entrada atual com novos dados
-			// digitalizados
-			scannedRobot.update(scannedRobotEvent);
-		}
-	}
-
-	/**
-	 * Método que atualiza a direção do radar com base em novos dados de varredura
-	 * para um robô verificado.
-	 * 
-	 * @param scannedRobotEvent é um evento ScannedRobotEvent que contém dados sobre
-	 *                          um robô verificado.
-	 */
-	private void updateScanDirection(ScannedRobotEvent scannedRobotEvent) {
-		// Obtém o nome do robô verificado
-		final String scannedRobotName = scannedRobotEvent.getName();
-
-		// Mude a direção da varredura se e somente se não tivermos registro do mais
-		// antigo
-		// digitalizado
-		// robô ou o robô verificado É o robô verificado mais antigo (com base no nome)
-		// E o inimigo
-		// mapa contém entradas de dados escaneados para TODOS os robôs (o tamanho do
-		// mapa inimigo
-		// é igual a
-		// o número de robôs oponentes encontrados chamando o método getOthers ()).
-		if ((oldestScanned == null || scannedRobotName.equals(oldestScanned.name)) && enemyMap.size() == getOthers()) {
-
-			// Obtenha os dados mais antigos do robô verificado em nosso LinkedHashMap, onde
-			// o primeiro valor contém a entrada acessada mais antiga, que é o robô que
-			// precisamos obter.
-			RobotData oldestScannedRobot = enemyMap.values().iterator().next();
-
-			// Obtenha a posição verificada recentemente (x, y) do robô verificado mais
-			// antigo
-			double x = oldestScannedRobot.scannedX;
-			double y = oldestScannedRobot.scannedY;
-
-			// Obtenha a direção do nosso robô
-			double ourHeading = getRadarHeadingRadians();
-
-			// Calcule o rumo do robô mais antigo verificado.
-			// O rumo é o ângulo delta entre o rumo do nosso robô e o outro robô,que pode
-			// ser um ângulo positivo ou negativo.
-			double bearing = bearingTo(ourHeading, x, y);
-
-			// Atualize a direção da varredura com base no rumo.
-			// Se o rumo for positivo, o radar será movido para a direita.
-			// Se a direção for negativa, o radar será movido para a esquerda.
-			scanDir = bearing;
-		}
-	}
-
-	/**
-	 * Atualiza as posições de destino para todos os inimigos. A posição alvo é a
-	 * posição em que nosso robô deve atirar para atingir o robô alvo. Este robô usa
-	 * a segmentação linear (solução não iterativa exata), conforme descrito no
-	 * RoboWiki here: https://robowiki.net/wiki/Linear_Targeting
-	 */
-	private void updateEnemyTargetPositions() {
-		// Passe por todos os robôs no mapa inimigo
-		for (RobotData enemy : enemyMap.values()) {
-
-			// Variáveis ​​prefixadas com e- referem-se ao inimigo e b- referem-se ao
-			// marcador
-			double bV = Rules.getBulletSpeed(PODERDEFOGO);
-			double eX = enemy.scannedX;
-			double eY = enemy.scannedY;
-			double eV = enemy.scannedVelocity;
-			double eH = enemy.scannedHeading;
-
-			// Essas constantes tornam o cálculo dos coeficientes quadráticos abaixo mais
-			// fácil
-			double A = (eX - getX()) / bV;
-			double B = (eY - getY()) / bV;
-			double C = eV / bV * Math.sin(eH);
-			double D = eV / bV * Math.cos(eH);
-
-			// Coeficientes quadráticos: a * (1 / t) ^ 2 + b * (1 / t) + c = 0
-			double a = A * A + B * B;
-			double b = 2 * (A * C + B * D);
-			double c = (C * C + D * D - 1);
-
-			// Se o discriminante da fórmula quadrática é> = 0, temos uma solução
-			// significa que em algum momento, t, a bala atingirá o robô inimigo se
-			// atirarmos nela agora.
-			double discrim = b * b - 4 * a * c;
-			if (discrim >= 0) {
-				// Fórmula recíproca de quadrática. Calcule as duas soluções possíveis para o
-				// tempo, t
-				double t1 = 2 * a / (-b - Math.sqrt(discrim));
-				double t2 = 2 * a / (-b + Math.sqrt(discrim));
-
-				// Escolha o tempo mínimo positivo ou selecione aquele mais próximo de 0,
-				// se o tempo é negativo
-				double t = Math.min(t1, t2) >= 0 ? Math.min(t1, t2) : Math.max(t1, t2);
-
-				// Calcule a posição do alvo (x, y) para o inimigo. Esse é o ponto que nosso
-				// arma de fogo deve apontar para acertar o inimigo no momento, t.
-				double targetX = eX + eV * t * Math.sin(eH);
-				double targetY = eY + eV * t * Math.cos(eH);
-
-				// Suponha que o inimigo pare nas paredes. Portanto, limitamos essa posição de
-				// destino no
-				// paredes.
-				double minX = HALF_ROBOT_SIZE;
-				double minY = HALF_ROBOT_SIZE;
-				double maxX = getBattleFieldWidth() - HALF_ROBOT_SIZE;
-				double maxY = getBattleFieldHeight() - HALF_ROBOT_SIZE;
-
-//				enemy.targetX = limit(targetX, minX, maxX);
-//				enemy.targetY = limit(targetY, minY, maxY);
-			}
-		}
 	}
 
 	/**
